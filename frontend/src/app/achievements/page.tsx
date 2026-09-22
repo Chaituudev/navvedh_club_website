@@ -1,0 +1,8 @@
+import { Medal, Trophy } from "lucide-react";
+import { PublicShell } from "@/components/layout/public-shell";
+import { PageHero } from "@/components/public/page-hero";
+import { achievements } from "@/data/mock";
+
+export default function AchievementsPage() {
+  return <PublicShell><PageHero eyebrow="Achievements" title="Verified outcomes, not decorative claims." description="Track student and club achievements over time, with a Hall of Fame reserved for genuinely significant work."/><section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><div className="rounded-3xl border border-[var(--accent)]/20 bg-[var(--accent)]/[0.05] p-7"><div className="flex items-center gap-3 text-[var(--accent)]"><Trophy/><span className="text-xs font-bold uppercase tracking-[0.18em]">Hall of Fame</span></div><h2 className="mt-5 text-2xl font-semibold text-white">Major verified achievements will appear here.</h2><p className="mt-3 max-w-2xl text-sm leading-7 text-white/48">This area stays intentionally selective so the designation means something.</p></div><div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">{achievements.map((item) => <article key={item.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-6"><Medal size={20} className="text-[var(--accent)]"/><div className="mt-5 text-xs uppercase tracking-[0.14em] text-white/35">{item.category} · {item.year}</div><h2 className="mt-2 text-xl font-semibold">{item.title}</h2><p className="mt-2 text-sm text-white/55">{item.personOrTeam}</p><p className="mt-4 text-sm leading-6 text-white/45">{item.description}</p></article>)}</div></section></PublicShell>;
+}

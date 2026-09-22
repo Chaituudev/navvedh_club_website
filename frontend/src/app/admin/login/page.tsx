@@ -1,0 +1,5 @@
+import Link from "next/link";
+import { AuthCard } from "@/components/auth/auth-card";
+import { AdminLoginForm } from "@/features/auth/admin-login-form";
+import { isApiConfigured } from "@/lib/api/server";
+export default async function AdminLoginPage({searchParams}:{searchParams:Promise<{error?:string}>}){const params=await searchParams;const configured=isApiConfigured();return <main className="tech-grid grid min-h-screen place-items-center px-4 py-10"><AuthCard title="Administrator sign in" description="Manage members, events, announcements, content and hackathon operations." footer={<><Link href="/login" className="font-semibold text-[var(--accent)]">Student sign in</Link>{" · "}<Link href="/" className="text-white/45 hover:text-white">Back to website</Link></>}>{params.error==="not-authorized"?<p className="mb-4 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-200">This account does not have administrator access.</p>:null}<AdminLoginForm disabled={!configured}/></AuthCard></main>}

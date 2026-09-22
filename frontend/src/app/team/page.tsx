@@ -1,0 +1,8 @@
+import { ExternalLink, GitBranch, UserRound } from "lucide-react";
+import { PublicShell } from "@/components/layout/public-shell";
+import { PageHero } from "@/components/public/page-hero";
+import { members } from "@/data/mock";
+
+export default function TeamPage() {
+  return <PublicShell><PageHero eyebrow="Team" title="Roles should map to real responsibility." description="Committee structure is database-driven and intentionally avoids filling the site with fake leadership positions."/><section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{members.map((member) => <article key={member.id} className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5"><div className="grid aspect-square place-items-center rounded-2xl border border-white/[0.06] bg-white/[0.02]"><UserRound size={48} className="text-white/15"/></div><div className="mt-5 text-xs uppercase tracking-[0.14em] text-[var(--accent)]">{member.group}</div><h2 className="mt-2 text-lg font-semibold text-white">{member.name}</h2><p className="mt-1 text-sm text-white/45">{member.role}</p>{member.year ? <p className="mt-1 text-xs text-white/30">{member.year}</p> : null}<div className="mt-4 flex gap-3">{member.githubUrl ? <a href={member.githubUrl} target="_blank" rel="noreferrer" aria-label={`${member.name} on GitHub`} className="text-white/45 transition hover:text-white"><GitBranch size={17}/></a> : null}{member.linkedinUrl ? <a href={member.linkedinUrl} target="_blank" rel="noreferrer" aria-label={`${member.name} on LinkedIn`} className="text-white/45 transition hover:text-white"><ExternalLink size={17}/></a> : null}</div></article>)}</div></section></PublicShell>;
+}

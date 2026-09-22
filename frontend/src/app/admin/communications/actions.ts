@@ -1,0 +1,7 @@
+"use server";
+import { apiFetch } from "@/lib/api/server";
+import { requireAdmin } from "@/lib/auth/guards";
+import type { CommunicationActionState } from "@/lib/action-states";
+export async function createCommunicationAction(_previous:CommunicationActionState,formData:FormData):Promise<CommunicationActionState>{await requireAdmin("MANAGE_ANNOUNCEMENTS");if(String(formData.get("confirmation")??"")!=="SEND")return{error:"Type SEND to confirm the broadcast."};const channels=formData.getAll("channels").map(String);if(!channels.includes("announcement"))return{error:"This beta currently sends in-app announcements. Email queue will be connected after Resend setup."};try{const data=await apiFetch<any>("/api/admin/announce",{method:"POST",body:JSON.stringify({title:String(formData.get("title")??""),body:String(formData.get("body")??""),link:"",years:formData.getAll("years").map(String),colleges:formData.getAll("colleges").map(String),departments:formData.getAll("departments").map(String),userIds:formData.getAll("selectedProfileIds").map(String),eventId:String(formData.get("eventId")??""),registrationStatus:String(formData.get("registrationStatus")??"")})},true);return{message:`Announcement sent to ${data.recipientCount} profile(s).`,recipientCount:data.recipientCount};}catch(e){return{error:e instanceof Error?e.message:"Announcement failed."};}}
+
+export async function processPendingEmailQueueAction(): Promise<CommunicationActionState> { return { error: "Email queue is not configured in this build." }; }

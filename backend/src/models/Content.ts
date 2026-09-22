@@ -1,0 +1,12 @@
+import { Schema, model } from "mongoose";
+
+const common = { title: { type: String, required: true }, description: { type: String, default: "" }, isPublished: { type: Boolean, default: true } };
+export const Project = model("Project", new Schema({ ...common, slug: { type: String, required: true, unique: true }, category: String, technologies: [String], teamMembers: [String], eventName: String, imageUrl: String, githubUrl: String, liveUrl: String, awards: [String] }, { timestamps: true }));
+export const Achievement = model("Achievement", new Schema({ ...common, category: String, year: Number, personOrTeam: String, imageUrl: String, isHallOfFame: { type: Boolean, default: false } }, { timestamps: true }));
+export const CommitteeMember = model("CommitteeMember", new Schema({ name: { type: String, required: true }, role: String, group: String, year: String, photoUrl: String, githubUrl: String, linkedinUrl: String, sortOrder: { type: Number, default: 0 }, isPublished: { type: Boolean, default: true } }, { timestamps: true }));
+export const Sponsor = model("Sponsor", new Schema({ name: { type: String, required: true }, level: String, logoUrl: String, websiteUrl: String, description: String, isPublished: { type: Boolean, default: true } }, { timestamps: true }));
+export const Resource = model("Resource", new Schema({ ...common, category: String, type: String, url: String, tags: [String] }, { timestamps: true }));
+export const GalleryAlbum = model("GalleryAlbum", new Schema({ title: { type: String, required: true }, eventName: String, coverUrl: String, images: [{ url: String, alt: String }], videoUrls: [String], isPublished: { type: Boolean, default: true } }, { timestamps: true }));
+export const ClubApplication = model("ClubApplication", new Schema({ fullName: String, email: { type: String, index: true }, phone: String, year: String, department: String, skills: String, preferredDomain: String, githubUrl: String, linkedinUrl: String, portfolioUrl: String, preferredTeam: String, motivation: String, status: { type: String, enum: ["pending","reviewing","accepted","rejected","withdrawn"], default: "pending" } }, { timestamps: true }));
+export const ContactMessage = model("ContactMessage", new Schema({ name: String, email: String, topic: String, message: String, status: { type: String, enum: ["new","reviewing","resolved"], default: "new" } }, { timestamps: true }));
+export const SiteSetting = model("SiteSetting", new Schema({ key: { type: String, unique: true }, value: Schema.Types.Mixed }, { timestamps: true }));
