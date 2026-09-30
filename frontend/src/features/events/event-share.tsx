@@ -1,37 +1,156 @@
 "use client";
-import { Copy, Facebook, Linkedin, Share2 } from "lucide-react";
+
+import {
+  Copy,
+  ExternalLink,
+  Share2,
+} from "lucide-react";
+
 import { useState } from "react";
 
-export function EventShare({ title, text, url }: { title: string; text: string; url: string }) {
-  const [copied, setCopied] = useState(false);
-  const encodedUrl = encodeURIComponent(url);
-  const encodedText = encodeURIComponent(`${title}\n${text}`);
+type EventShareProps = {
+  title: string;
+  text: string;
+  url: string;
+};
+
+export function EventShare({
+  title,
+  text,
+  url,
+}: EventShareProps) {
+  const [copied, setCopied] =
+    useState(false);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(
+        url,
+      );
+
+      setCopied(true);
+
+      window.setTimeout(
+        () => setCopied(false),
+        2000,
+      );
+    } catch {
+      setCopied(false);
+    }
+  }
 
   async function nativeShare() {
-    if (navigator.share) {
-      await navigator.share({ title, text, url }).catch(() => undefined);
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.share
+    ) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url,
+        });
+      } catch {
+        // User cancelled sharing.
+      }
+
       return;
     }
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+
+    await copyLink();
   }
 
-  async function copy() {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  function openExternal(
+    targetUrl: string,
+  ) {
+    window.open(
+      targetUrl,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
-  return <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-5">
-    <h2 className="font-semibold text-white">Share Event</h2>
-    <p className="mt-2 text-sm text-white/40">Invite friends or share the event on your social handles.</p>
-    <div className="mt-4 grid grid-cols-2 gap-2">
-      <button type="button" onClick={nativeShare} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-xs font-semibold text-white/65"><Share2 size={14}/>Share</button>
-      <button type="button" onClick={copy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-xs font-semibold text-white/65"><Copy size={14}/>{copied?"Copied":"Copy link"}</button>
-      <a target="_blank" rel="noreferrer" href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-xs font-semibold text-white/65"><Linkedin size={14}/>LinkedIn</a>
-      <a target="_blank" rel="noreferrer" href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 text-xs font-semibold text-white/65"><Facebook size={14}/>Facebook</a>
-      <a target="_blank" rel="noreferrer" href={`https://wa.me/?text=${encodedText}%0A${encodedUrl}`} className="col-span-2 inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 text-xs font-semibold text-white/65">WhatsApp</a>
+  const encodedText =
+    encodeURIComponent(text);
+
+  const encodedUrl =
+    encodeURIComponent(url);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Native share */}
+
+      <button
+        type="button"
+        onClick={nativeShare}
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+      >
+        <Share2 size={16} />
+
+        Share
+      </button>
+
+      {/* WhatsApp */}
+
+      <button
+        type="button"
+        onClick={() =>
+          openExternal(
+            `https://wa.me/?text=${encodedText}%20${encodedUrl}`,
+          )
+        }
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+      >
+        <ExternalLink size={15} />
+
+        WhatsApp
+      </button>
+
+      {/* LinkedIn */}
+
+      <button
+        type="button"
+        onClick={() =>
+          openExternal(
+            `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+          )
+        }
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+      >
+        <ExternalLink size={15} />
+
+        LinkedIn
+      </button>
+
+      {/* Facebook */}
+
+      <button
+        type="button"
+        onClick={() =>
+          openExternal(
+            `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+          )
+        }
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+      >
+        <ExternalLink size={15} />
+
+        Facebook
+      </button>
+
+      {/* Copy */}
+
+      <button
+        type="button"
+        onClick={copyLink}
+        className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+      >
+        <Copy size={15} />
+
+        {copied
+          ? "Copied!"
+          : "Copy Link"}
+      </button>
     </div>
-  </div>;
+  );
 }
