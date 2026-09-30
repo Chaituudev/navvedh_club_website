@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Model } from "mongoose";
 import { z } from "zod";
 import { requireAdmin, requirePermission, requireRoles } from "../middleware/auth.js";
 import { User } from "../models/User.js";
@@ -63,19 +64,22 @@ adminRouter.get("/users", requirePermission("MANAGE_MEMBERS"), asyncHandler(asyn
 }));
 
 adminRouter.get("/users/:id", requirePermission("MANAGE_MEMBERS"), asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+  const id = typeof req.params.id === "string" ? req.params.id : "";
+  const user = await User.findById(id);
   if (!user) return res.status(404).json({ error: "User not found." });
   const registrations = await Registration.find({ user: user._id }).populate("event", "name slug isArchived").sort({ createdAt: -1 }).limit(50);
   res.json({ user: publicUser(user), registrations });
 }));
 
 adminRouter.patch("/users/:id", requirePermission("MANAGE_MEMBERS"), asyncHandler(async (req, res) => {
+  const id = String(req.params.id ?? "");
+  if (!id) return res.status(400).json({ error: "User id is required." });
   const parsed = z.object({ fullName: z.string().min(2).optional(), mobile: z.string().optional(), college: z.string().optional(), department: z.string().optional(), year: z.string().optional(), isActive: z.boolean().optional() }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid user update." });
-  const before = await User.findById(req.params.id);
-  const user = await User.findByIdAndUpdate(req.params.id, { $set: parsed.data }, { new: true, runValidators: true });
+  const before = await User.findById(id);
+  const user = await User.findByIdAndUpdate(id, { $set: parsed.data }, { new: true, runValidators: true });
   if (!user) return res.status(404).json({ error: "User not found." });
-  await audit(req.auth!.userId, "user.update", "User", req.params.id, { before: before ? publicUser(before) : null, after: publicUser(user) });
+  await audit(req.auth!.userId, "user.update", "User", id, { before: before ? publicUser(before) : null, after: publicUser(user) });
   res.json({ user: publicUser(user) });
 }));
 
@@ -93,20 +97,24 @@ adminRouter.post("/events", requirePermission("MANAGE_EVENTS"), asyncHandler(asy
 }));
 
 adminRouter.patch("/events/:id", requirePermission("MANAGE_EVENTS"), asyncHandler(async (req, res) => {
+  const id = String(req.params.id ?? "");
+  if (!id) return res.status(400).json({ error: "Event id is required." });
   const protectedFields = ["winnerUser", "runnerUpUser", "resultsPublished", "isArchived", "archivedAt"];
   const data = { ...req.body };
   for (const key of protectedFields) delete data[key];
-  const event = await Event.findByIdAndUpdate(req.params.id, { $set: data }, { new: true, runValidators: true });
+  const event = await Event.findByIdAndUpdate(id, { $set: data }, { new: true, runValidators: true });
   if (!event) return res.status(404).json({ error: "Event not found." });
-  await audit(req.auth!.userId, "event.update", "Event", req.params.id);
+  await audit(req.auth!.userId, "event.update", "Event", id);
   res.json({ event });
 }));
 
 // Compatibility: old DELETE calls now archive instead of destroying history.
 adminRouter.delete("/events/:id", requirePermission("MANAGE_EVENTS"), asyncHandler(async (req, res) => {
-  const event = await Event.findByIdAndUpdate(req.params.id, { $set: { isArchived: true, archivedAt: new Date(), isPublished: false } }, { new: true });
+  const id = String(req.params.id ?? "");
+  if (!id) return res.status(400).json({ error: "Event id is required." });
+  const event = await Event.findByIdAndUpdate(id, { $set: { isArchived: true, archivedAt: new Date(), isPublished: false } }, { new: true });
   if (!event) return res.status(404).json({ error: "Event not found." });
-  await audit(req.auth!.userId, "event.archive", "Event", req.params.id);
+  await audit(req.auth!.userId, "event.archive", "Event", id);
   res.json({ event, message: "Event archived; student history preserved." });
 }));
 
@@ -140,11 +148,58 @@ adminRouter.patch("/applications/:id", requirePermission("MANAGE_MEMBERS"), asyn
 adminRouter.get("/contact", requirePermission("MANAGE_CONTACTS"), asyncHandler(async (_req, res) => { res.json({ messages: await ContactMessage.find({}).sort({ createdAt: -1 }) }); }));
 adminRouter.patch("/contact/:id", requirePermission("MANAGE_CONTACTS"), asyncHandler(async (req, res) => { const message = await ContactMessage.findByIdAndUpdate(req.params.id, { $set: { status: req.body.status } }, { new: true }); res.json({ message }); }));
 
-const contentMap: any = { projects: Project, achievements: Achievement, team: CommitteeMember, sponsors: Sponsor, resources: Resource, gallery: GalleryAlbum };
-adminRouter.get("/content/:type", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => { const M = contentMap[req.params.type]; if (!M) return res.status(404).json({ error: "Unknown content type." }); res.json({ items: await M.find({}).sort({ createdAt: -1 }) }); }));
-adminRouter.post("/content/:type", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => { const M = contentMap[req.params.type]; if (!M) return res.status(404).json({ error: "Unknown content type." }); const item = await M.create(req.body); res.status(201).json({ item }); }));
-adminRouter.patch("/content/:type/:id", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => { const M = contentMap[req.params.type]; if (!M) return res.status(404).json({ error: "Unknown content type." }); const item = await M.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true }); res.json({ item }); }));
-adminRouter.delete("/content/:type/:id", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => { const M = contentMap[req.params.type]; if (!M) return res.status(404).json({ error: "Unknown content type." }); await M.findByIdAndDelete(req.params.id); res.status(204).end(); }));
+const contentMap = {
+  projects: Project,
+  achievements: Achievement,
+  team: CommitteeMember,
+  sponsors: Sponsor,
+  resources: Resource,
+  gallery: GalleryAlbum,
+} as const;
+
+function getContentModel(
+  typeParam: string | string[] | undefined,
+): Model<any> | null {
+  if (typeof typeParam !== "string") return null;
+
+  const model = contentMap[typeParam as keyof typeof contentMap];
+
+  return model ?? null;
+}
+
+type ContentType = keyof typeof contentMap;
+
+
+adminRouter.get("/content/:type", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => {
+  const M = getContentModel(req.params.type);
+  if (!M) return res.status(404).json({ error: "Unknown content type." });
+  res.json({ items: await M.find({}).sort({ createdAt: -1 }) });
+}));
+
+adminRouter.post("/content/:type", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => {
+  const M = getContentModel(req.params.type);
+  if (!M) return res.status(404).json({ error: "Unknown content type." });
+  const item = await M.create(req.body);
+  res.status(201).json({ item });
+}));
+
+adminRouter.patch("/content/:type/:id", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => {
+  const M = getContentModel(req.params.type);
+  const id = typeof req.params.id === "string" ? req.params.id : "";
+  if (!M) return res.status(404).json({ error: "Unknown content type." });
+  if (!id) return res.status(400).json({ error: "Content id is required." });
+  const item = await M.findByIdAndUpdate(id, { $set: req.body }, { new: true, runValidators: true });
+  res.json({ item });
+}));
+
+adminRouter.delete("/content/:type/:id", requirePermission("MANAGE_CONTENT"), asyncHandler(async (req, res) => {
+  const M = getContentModel(req.params.type);
+  const id = typeof req.params.id === "string" ? req.params.id : "";
+  if (!M) return res.status(404).json({ error: "Unknown content type." });
+  if (!id) return res.status(400).json({ error: "Content id is required." });
+  await M.findByIdAndDelete(id);
+  res.status(204).end();
+}));
 
 adminRouter.get("/settings", requireRoles("SUPER_ADMIN"), asyncHandler(async (_req, res) => { const rows = await SiteSetting.find({}); res.json({ settings: Object.fromEntries(rows.map((r) => [r.key, r.value])) }); }));
 adminRouter.put("/settings", requireRoles("SUPER_ADMIN"), asyncHandler(async (req, res) => { for (const [key, value] of Object.entries(req.body ?? {})) await SiteSetting.findOneAndUpdate({ key }, { $set: { value } }, { upsert: true, new: true }); res.json({ message: "Settings saved." }); }));

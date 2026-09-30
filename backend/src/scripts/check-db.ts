@@ -45,7 +45,6 @@ async function tlsCheck(host: string, port: number) {
       host,
       port,
       servername: host,
-      family: 4,
       minVersion: "TLSv1.2",
       maxVersion: env.MONGODB_FORCE_TLS12 ? "TLSv1.2" : "TLSv1.3",
       rejectUnauthorized: true,

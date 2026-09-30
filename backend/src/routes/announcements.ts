@@ -21,8 +21,9 @@ announcementsRouter.patch("/read/all", asyncHandler(async (req, res) => {
 }));
 
 announcementsRouter.patch("/:id/read", asyncHandler(async (req, res) => {
-  if (!Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ error: "Invalid announcement." });
-  const notification = await Notification.findOneAndUpdate({ _id: req.params.id, user: req.auth!.userId }, { $set: { readAt: new Date() } }, { new: true });
+  const id = typeof req.params.id === "string" ? req.params.id : "";
+  if (!id || !Types.ObjectId.isValid(id)) return res.status(400).json({ error: "Invalid announcement." });
+  const notification = await Notification.findOneAndUpdate({ _id: id, user: req.auth!.userId }, { $set: { readAt: new Date() } }, { new: true });
   if (!notification) return res.status(404).json({ error: "Announcement not found." });
   res.json({ notification });
 }));

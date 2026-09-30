@@ -3,7 +3,9 @@ import { Certificate } from "../models/Certificate.js";
 import { asyncHandler } from "../utils/async-handler.js";
 export const certificatesRouter = Router();
 certificatesRouter.get("/verify/:number", asyncHandler(async (req, res) => {
-  const certificate = await Certificate.findOne({ certificateNumber: req.params.number.trim().toUpperCase() }).populate("event", "name slug startsAt");
+  const number = typeof req.params.number === "string" ? req.params.number.trim() : "";
+  if (!number) return res.status(400).json({ error: "Certificate number is required." });
+  const certificate = await Certificate.findOne({ certificateNumber: number.toUpperCase() }).populate("event", "name slug startsAt");
   if (!certificate) return res.status(404).json({ error: "Certificate not found." });
   return res.json({ certificate: {
     certificateNumber: certificate.certificateNumber,
