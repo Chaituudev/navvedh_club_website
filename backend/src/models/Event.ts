@@ -3,6 +3,10 @@ import { Schema, model } from "mongoose";
 const timelineSchema = new Schema({ time: String, label: String, detail: String }, { _id: false });
 const faqSchema = new Schema({ question: String, answer: String }, { _id: false });
 const awardSchema = new Schema({ title: String, description: String }, { _id: false });
+const resultAwardSchema = new Schema({
+  title: { type: String, required: true, trim: true },
+  recipientUser: { type: Schema.Types.ObjectId, ref: "User", required: true },
+}, { _id: false });
 
 const eventSchema = new Schema({
   slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -39,6 +43,7 @@ const eventSchema = new Schema({
   winnerUser: { type: Schema.Types.ObjectId, ref: "User", default: null },
   runnerUpUser: { type: Schema.Types.ObjectId, ref: "User", default: null },
   resultsPublished: { type: Boolean, default: false, index: true },
+  resultAwards: { type: [resultAwardSchema], default: [] },
 
   // Webinar / guest lecture metadata. Safe to leave empty for normal events.
   speakerName: { type: String, default: "" },

@@ -72,16 +72,37 @@ adminEventManagementRouter.post("/:eventId/results", requirePermission("MANAGE_R
   const parsed = z.object({
     winnerUserId: z.string().min(1), runnerUpUserId: z.string().min(1), resultsPublished: z.boolean().default(true),
     winnerRecognition: z.string().trim().max(160).default(""), runnerUpRecognition: z.string().trim().max(160).default(""),
+    additionalAwards: z.array(z.object({
+      title: z.string().trim().min(1).max(160),
+      recipientUserId: z.string().min(1),
+    })).max(50).default([]),
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Winner and runner-up are required." });
   if (parsed.data.winnerUserId === parsed.data.runnerUpUserId) return res.status(400).json({ error: "Winner and runner-up cannot be the same student." });
 
   const event = await Event.findById(req.params.eventId);
   if (!event) return res.status(404).json({ error: "Event not found." });
-  const registrations = await Registration.find({ event: event._id, user: { $in: [parsed.data.winnerUserId, parsed.data.runnerUpUserId] }, status: { $in: ["registered", "confirmed"] } });
+  const additionalRecipientIds = parsed.data.additionalAwards.map((award) => award.recipientUserId);
+  const allRecipientIds = Array.from(new Set([
+    parsed.data.winnerUserId,
+    parsed.data.runnerUpUserId,
+    ...additionalRecipientIds,
+  ]));
+
+  const registrations = await Registration.find({
+    event: event._id,
+    user: { $in: allRecipientIds },
+    status: { $in: ["registered", "confirmed"] },
+  });
   const registered = new Set(registrations.map((r) => String(r.user)));
   if (!registered.has(parsed.data.winnerUserId)) return res.status(400).json({ error: "Selected winner is not registered for this event." });
   if (!registered.has(parsed.data.runnerUpUserId)) return res.status(400).json({ error: "Selected runner-up is not registered for this event." });
+
+  for (const award of parsed.data.additionalAwards) {
+    if (!registered.has(award.recipientUserId)) {
+      return res.status(400).json({ error: `Award recipient is not registered for this event.` });
+    }
+  }
 
   if (event.winnerUser && String(event.winnerUser) !== parsed.data.winnerUserId) {
     await Certificate.updateMany({ event: event._id, user: event.winnerUser, roleType: "Winner", verificationStatus: "valid" }, { $set: { verificationStatus: "revoked", revokedAt: new Date(), revocationReason: "Event result changed." } });
@@ -93,6 +114,10 @@ adminEventManagementRouter.post("/:eventId/results", requirePermission("MANAGE_R
   event.winnerUser = parsed.data.winnerUserId as any;
   event.runnerUpUser = parsed.data.runnerUpUserId as any;
   event.resultsPublished = parsed.data.resultsPublished;
+  event.set("resultAwards", parsed.data.additionalAwards.map((award) => ({
+    title: award.title,
+    recipientUser: award.recipientUserId,
+  })));
   await event.save();
 
   const winnerCertificate = await issuePlacementCertificate(String(event._id), parsed.data.winnerUserId, "Winner", event.name);
@@ -113,6 +138,9 @@ adminEventManagementRouter.post("/:eventId/results", requirePermission("MANAGE_R
     );
   }
 
-  const updatedEvent = await Event.findById(event._id).populate("winnerUser", "fullName email").populate("runnerUpUser", "fullName email");
+  const updatedEvent = await Event.findById(event._id)
+    .populate("winnerUser", "fullName email")
+    .populate("runnerUpUser", "fullName email")
+    .populate("resultAwards.recipientUser", "fullName email");
   res.json({ event: updatedEvent, certificates: { winner: winnerCertificate, runnerUp: runnerUpCertificate }, message: "Results saved and certificates generated." });
 }));

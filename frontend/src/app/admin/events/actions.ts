@@ -13,4 +13,33 @@ export async function updateEventStatusAction(formData:FormData){await requireAd
 export async function toggleEventPublishAction(formData:FormData){await requireAdmin("MANAGE_EVENTS");const id=String(formData.get("eventId")??"");await apiFetch(`/api/admin/event-management/${id}/publish`,{method:"PATCH",body:JSON.stringify({isPublished:String(formData.get("publish"))==="true"})},true);revalidatePath("/admin/events");revalidatePath("/events");}
 export async function archiveEventAction(formData:FormData){await requireAdmin("MANAGE_EVENTS");const id=String(formData.get("eventId")??"");await apiFetch(`/api/admin/event-management/${id}/archive`,{method:"PATCH"},true);revalidatePath("/admin/events");revalidatePath("/events");revalidatePath("/profile");}
 export async function restoreEventAction(formData:FormData){await requireAdmin("MANAGE_EVENTS");const id=String(formData.get("eventId")??"");await apiFetch(`/api/admin/event-management/${id}/restore`,{method:"PATCH"},true);revalidatePath("/admin/events");}
-export async function saveEventResultsAction(formData:FormData){await requireAdmin("MANAGE_RESULTS");const id=String(formData.get("eventId")??"");try{await apiFetch(`/api/admin/event-management/${id}/results`,{method:"POST",body:JSON.stringify({winnerUserId:String(formData.get("winnerUserId")??""),runnerUpUserId:String(formData.get("runnerUpUserId")??""),winnerRecognition:String(formData.get("winnerRecognition")??""),runnerUpRecognition:String(formData.get("runnerUpRecognition")??""),resultsPublished:true})},true);}catch(e){redirect(`/admin/events?error=${encodeURIComponent(e instanceof Error?e.message:"Could not save results")}`)}revalidatePath("/admin/events");revalidatePath("/events");revalidatePath("/profile");redirect("/admin/events?results=1");}
+export async function saveEventResultsAction(formData:FormData){
+  await requireAdmin("MANAGE_RESULTS");
+  const id=String(formData.get("eventId")??"");
+  const titles=formData.getAll("additionalAwardTitle");
+  const recipients=formData.getAll("additionalAwardRecipientId");
+  const additionalAwards=titles.map((title,index)=>({
+    title:String(title??"").trim(),
+    recipientUserId:String(recipients[index]??"").trim(),
+  })).filter((award)=>award.title&&award.recipientUserId);
+
+  try{
+    await apiFetch(`/api/admin/event-management/${id}/results`,{
+      method:"POST",
+      body:JSON.stringify({
+        winnerUserId:String(formData.get("winnerUserId")??""),
+        runnerUpUserId:String(formData.get("runnerUpUserId")??""),
+        winnerRecognition:String(formData.get("winnerRecognition")??""),
+        runnerUpRecognition:String(formData.get("runnerUpRecognition")??""),
+        additionalAwards,
+        resultsPublished:true
+      })
+    },true);
+  }catch(e){
+    redirect(`/admin/events?error=${encodeURIComponent(e instanceof Error?e.message:"Could not save results")}`)
+  }
+  revalidatePath("/admin/events");
+  revalidatePath("/events");
+  revalidatePath("/profile");
+  redirect("/admin/events?results=1");
+}
